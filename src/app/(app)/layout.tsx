@@ -5,6 +5,7 @@ import { getPickerOptions } from "@/server/projects";
 import { NavLinks } from "@/components/nav-links";
 import { TimerWidget } from "@/components/timer-widget";
 import { logout } from "@/app/actions/auth";
+import { isDemoMode } from "@/db";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </form>
       </aside>
       <main className="min-w-0 flex-1 px-4 pt-7 pb-16 sm:px-8 lg:px-12 lg:pt-9">
-        <div className="mx-auto flex max-w-[1120px] flex-col gap-6">{children}</div>
+        <div className="mx-auto flex max-w-[1120px] flex-col gap-6">
+          {isDemoMode() ? (
+            <p className="rounded-lg border border-accent-line bg-accent-soft px-4 py-2.5 text-[13px] text-accent-hover">
+              <span className="font-semibold">Demo</span> · Sample data. Feel free to change anything; the demo can reset to sample data at any time.
+            </p>
+          ) : null}
+          {children}
+        </div>
       </main>
     </div>
   );
