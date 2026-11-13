@@ -39,5 +39,11 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.1.0"
+  },
+  "allowScripts": {
+    "better-sqlite3": true
+  },
+  "engines": {
+    "node": ">=20.9"
   }
 }
