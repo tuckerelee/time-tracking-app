@@ -54,7 +54,10 @@ export function getDb(): Promise<DB> {
         // Publish the open connection first: loading sample data goes through
         // services that call getDb() themselves.
         g.__db = Promise.resolve(db);
-        if (isDemoMode() && (await clientCount(db)) === 0) await loadSampleData();
+        // Sample data only ever goes into the temporary demo database, never a real one.
+        if (isDemoMode() && !url.startsWith("libsql:") && !url.startsWith("http") && url.includes("ledger-demo.db") && (await clientCount(db)) === 0) {
+          await loadSampleData();
+        }
         return db;
       })
       .catch((e) => {
