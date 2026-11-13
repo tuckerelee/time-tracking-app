@@ -4,8 +4,8 @@ import { SettingsForm } from "./settings-form";
 
 export const metadata = { title: "Settings" };
 
-export default function SettingsPage() {
-  const s = getSettings();
+export default async function SettingsPage() {
+  const s = await getSettings();
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <PageHeader title="Settings" />

@@ -17,7 +17,7 @@ const LIMIT = 500;
 
 export default async function EntriesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
-  const s = getSettings();
+  const s = await getSettings();
   const today = todayIn(s.timezone);
   const num = (v?: string) => (v && /^\d+$/.test(v) ? Number(v) : null);
   const filters: EntryFilters = {
@@ -28,11 +28,11 @@ export default async function EntriesPage({ searchParams }: { searchParams: Prom
     status: sp.status === "uninvoiced" || sp.status === "invoiced" ? sp.status : "all",
     search: sp.q ?? null,
   };
-  const entries = listEntries({ ...filters, limit: LIMIT });
-  const total = sumEntries(filters);
-  const pickers = getPickerOptions();
+  const entries = await listEntries({ ...filters, limit: LIMIT });
+  const total = await sumEntries(filters);
+  const pickers = await getPickerOptions();
   // Filters include archived clients so their history stays reachable.
-  const allClients = listClients({ includeArchived: true }).map((c) => ({
+  const allClients = (await listClients({ includeArchived: true })).map((c) => ({
     id: c.id,
     name: c.archived ? `${c.name} (archived)` : c.name,
     projects: pickers.find((p) => p.id === c.id)?.projects ?? [],

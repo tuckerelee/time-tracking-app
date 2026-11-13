@@ -7,14 +7,20 @@
 import { getDb } from "../src/db";
 import { clientCount, loadSampleData, wipeData } from "../src/server/sample-data";
 
-const db = getDb();
-const reset = process.argv.includes("--reset");
-const existing = clientCount(db);
-
-if (existing > 0 && !reset) {
-  console.log(`Database already has ${existing} clients. Run with --reset to replace everything with sample data.`);
-  process.exit(0);
+async function main() {
+  const db = await getDb();
+  const reset = process.argv.includes("--reset");
+  const existing = await clientCount(db);
+  if (existing > 0 && !reset) {
+    console.log(`Database already has ${existing} clients. Run with --reset to replace everything with sample data.`);
+    return;
+  }
+  if (reset) await wipeData(db);
+  const { entries } = await loadSampleData();
+  console.log(`Seeded 4 clients, 7 projects and ${entries} entries.`);
 }
-if (reset) wipeData(db);
-const { entries } = loadSampleData();
-console.log(`Seeded 4 clients, 7 projects and ${entries} entries.`);
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

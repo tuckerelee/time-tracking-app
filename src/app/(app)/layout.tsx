@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   await requireAuth();
-  const settings = getSettings();
-  const timer = getTimer();
-  const clients = getPickerOptions();
+  const settings = await getSettings();
+  const timer = await getTimer();
+  const clients = await getPickerOptions();
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
       <aside className="flex shrink-0 flex-col gap-5 border-b border-stone-200 bg-white px-3.5 py-4 lg:sticky lg:top-0 lg:h-screen lg:w-60 lg:border-r lg:border-b-0 lg:py-5">

@@ -17,12 +17,12 @@ export type ReportFilters = {
 };
 
 /** Parse report filters from URL search params, falling back to "this month, all entries". */
-export function parseReportFilters(params: Record<string, string | string[] | undefined> | URLSearchParams): ReportFilters & { preset: RangePreset } {
+export async function parseReportFilters(params: Record<string, string | string[] | undefined> | URLSearchParams): Promise<ReportFilters & { preset: RangePreset }> {
   const get = (k: string) => {
     const v = params instanceof URLSearchParams ? params.get(k) : params[k];
     return Array.isArray(v) ? v[0] : v ?? undefined;
   };
-  const s = getSettings();
+  const s = await getSettings();
   const today = todayIn(s.timezone);
   const presetRaw = get("preset") as RangePreset | undefined;
   const preset: RangePreset = presetRaw && ["thisMonth", "lastMonth", "thisWeek", "lastWeek", "thisYear", "custom"].includes(presetRaw) ? presetRaw : "thisMonth";
@@ -62,10 +62,10 @@ export type ReportData = {
   filenameBase: (ext: "pdf" | "xlsx" | "csv") => string;
 };
 
-export function getReportData(filters: ReportFilters): ReportData {
-  const s = getSettings();
-  const client = filters.clientId ? getDb().select({ name: clients.name }).from(clients).where(eq(clients.id, filters.clientId)).get() : null;
-  const entries = listEntries({
+export async function getReportData(filters: ReportFilters): Promise<ReportData> {
+  const s = await getSettings();
+  const client = filters.clientId ? await (await getDb()).select({ name: clients.name }).from(clients).where(eq(clients.id, filters.clientId)).get() : null;
+  const entries = await listEntries({
     clientId: filters.clientId,
     projectId: filters.projectId,
     from: filters.from,

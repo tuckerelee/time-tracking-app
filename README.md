@@ -28,10 +28,11 @@ Excel, CSV).
 ## Stack
 
 Next.js 16 (App Router, server actions) · TypeScript · Tailwind CSS 4 ·
-SQLite via Drizzle ORM (better-sqlite3) · Zod · react-pdf · ExcelJS · Vitest.
+SQLite via Drizzle ORM and libSQL · Zod · react-pdf · ExcelJS · Vitest.
 
-Everything runs in one Node process with one database file; there are no paid
-services.
+Locally the database is a single SQLite file. In production it is
+[Turso](https://turso.tech) (hosted SQLite; the free plan is plenty for this
+app), so it runs on Vercel or anywhere else without a disk.
 
 ## Setup
 
@@ -45,7 +46,7 @@ cp .env.example .env.local
 Fill in `.env.local`:
 
 ```bash
-openssl rand -base64 48          # paste as AUTH_SECRET
+node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"   # paste as AUTH_SECRET
 npm run hash-password -- "choose a strong password"   # paste the printed line
 ```
 
@@ -60,22 +61,22 @@ The database (`data/app.db` by default) and its tables are created
 automatically on first start. Open **Settings** to enter your business
 details, default rate and timezone.
 
-## Production
+## Production (Vercel + Turso)
 
-```bash
-npm run build
-npm start              # serves on port 3000 (set PORT to change)
-```
+1. Create a Turso database: in Vercel, open the project → **Storage** →
+   add **Turso**, or create one at turso.tech and copy its URL and token.
+2. Set the project's environment variables: `AUTH_SECRET`, `APP_PASSWORD_HASH`
+   (or `APP_PASSWORD`), and `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (added
+   automatically by the integration). Remove `DEMO_MODE`.
+3. Deploy. Tables are created automatically on first request; there is nothing
+   to run by hand.
 
-Run it on any host that has a persistent disk (a small VPS, a home server, Fly.io
-or Railway with a volume, etc.) and put it behind HTTPS. Session cookies are
-marked `Secure` in production, so plain-HTTP access won't stay signed in.
-Serverless platforms without a persistent filesystem (e.g. Vercel) are not
-suitable for the SQLite file.
+Other hosts work too: `npm run build && npm start` with the same variables.
+Session cookies are marked `Secure` in production, so use HTTPS.
 
-**Backups:** the whole dataset is `data/app.db` (plus `-wal`/`-shm` files while
-running). Back it up with `sqlite3 data/app.db ".backup backup.db"`, or by
-copying the file while the app is stopped.
+**Backups:** Turso keeps point-in-time backups on its paid plans; on any plan you
+can export with `turso db shell <db> .dump > backup.sql`. Locally, copy
+`data/app.db` while the app is stopped.
 
 ## Billing math
 

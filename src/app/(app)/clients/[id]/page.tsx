@@ -14,12 +14,12 @@ import { EntriesList } from "@/components/entries-list";
 
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const client = /^\d+$/.test(id) ? getClient(Number(id)) : undefined;
+  const client = /^\d+$/.test(id) ? await getClient(Number(id)) : undefined;
   if (!client) notFound();
-  const s = getSettings();
-  const projects = listProjects({ clientId: client.id, includeArchived: true });
-  const recent = listEntries({ clientId: client.id, limit: 10 });
-  const pickers = getPickerOptions();
+  const s = await getSettings();
+  const projects = await listProjects({ clientId: client.id, includeArchived: true });
+  const recent = await listEntries({ clientId: client.id, limit: 10 });
+  const pickers = await getPickerOptions();
 
   return (
     <>

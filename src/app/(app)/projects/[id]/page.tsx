@@ -13,12 +13,12 @@ import { EntriesList } from "@/components/entries-list";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const project = /^\d+$/.test(id) ? getProject(Number(id)) : undefined;
+  const project = /^\d+$/.test(id) ? await getProject(Number(id)) : undefined;
   if (!project) notFound();
-  const s = getSettings();
+  const s = await getSettings();
   const today = todayIn(s.timezone);
-  const entries = listEntries({ projectId: project.id });
-  const pickers = getPickerOptions();
+  const entries = await listEntries({ projectId: project.id });
+  const pickers = await getPickerOptions();
   const active = !project.archived && !project.clientArchived;
 
   return (

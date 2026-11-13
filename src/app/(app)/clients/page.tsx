@@ -12,8 +12,8 @@ export const metadata = { title: "Clients" };
 
 export default async function ClientsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
-  const s = getSettings();
-  const rows = listClients({ includeArchived: sp.archived === "1", search: sp.q });
+  const s = await getSettings();
+  const rows = await listClients({ includeArchived: sp.archived === "1", search: sp.q });
   return (
     <>
       <PageHeader

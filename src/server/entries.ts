@@ -4,8 +4,8 @@ import { clients, projects, timeEntries, type TimeEntry } from "@/db/schema";
 import { billableCents } from "@/lib/money";
 import { effectiveRate } from "@/lib/rates";
 import type { BillingStatus, ReportEntry } from "@/lib/report";
-import { getSettings } from "./settings";
 import { todayIn } from "@/lib/dates";
+import { getSettings } from "./settings";
 
 type Tx = Parameters<Parameters<DB["transaction"]>[0]>[0];
 
@@ -24,8 +24,8 @@ export type EntryInput = {
   source?: "manual" | "timer";
 };
 
-function currentRate(db: DB | Tx, projectId: number): number {
-  const row = db
+async function currentRate(db: DB | Tx, projectId: number): Promise<number> {
+  const row = await db
     .select({ clientRate: clients.rateCents, projectRate: projects.rateCents })
     .from(projects)
     .innerJoin(clients, eq(clients.id, projects.clientId))
@@ -35,8 +35,9 @@ function currentRate(db: DB | Tx, projectId: number): number {
   return effectiveRate(row.clientRate, row.projectRate).rateCents;
 }
 
-export function createEntry(input: EntryInput, db: DB | Tx = getDb()): TimeEntry {
-  const rateCents = input.rateCents ?? currentRate(db, input.projectId);
+export async function createEntry(input: EntryInput, conn?: DB | Tx): Promise<TimeEntry> {
+  const db = conn ?? (await getDb());
+  const rateCents = input.rateCents ?? (await currentRate(db, input.projectId));
   return db
     .insert(timeEntries)
     .values({
@@ -59,13 +60,12 @@ export function createEntry(input: EntryInput, db: DB | Tx = getDb()): TimeEntry
  * entry moves to a different project (then that project's current rate applies).
  * The amount is always recomputed from the entry's own minutes and rate.
  */
-export function updateEntry(id: number, input: Partial<EntryInput>): TimeEntry {
-  const db = getDb();
-  const existing = db.select().from(timeEntries).where(eq(timeEntries.id, id)).get();
+export async function updateEntry(id: number, input: Partial<EntryInput>): Promise<TimeEntry> {
+  const db = await getDb();
+  const existing = await db.select().from(timeEntries).where(eq(timeEntries.id, id)).get();
   if (!existing) throw new Error("Entry not found");
   const projectId = input.projectId ?? existing.projectId;
-  const rateCents =
-    input.rateCents ?? (projectId !== existing.projectId ? currentRate(db, projectId) : existing.rateCents);
+  const rateCents = input.rateCents ?? (projectId !== existing.projectId ? await currentRate(db, projectId) : existing.rateCents);
   const minutes = input.minutes ?? existing.minutes;
   return db
     .update(timeEntries)
@@ -85,34 +85,31 @@ export function updateEntry(id: number, input: Partial<EntryInput>): TimeEntry {
 }
 
 /** Copy an entry to a new date (default today) as new, uninvoiced work at the project's current rate. */
-export function duplicateEntry(id: number, date?: string): TimeEntry {
-  const db = getDb();
-  const e = db.select().from(timeEntries).where(eq(timeEntries.id, id)).get();
+export async function duplicateEntry(id: number, date?: string): Promise<TimeEntry> {
+  const db = await getDb();
+  const e = await db.select().from(timeEntries).where(eq(timeEntries.id, id)).get();
   if (!e) throw new Error("Entry not found");
   return createEntry({
-    date: date ?? todayIn(getSettings().timezone),
+    date: date ?? todayIn((await getSettings()).timezone),
     projectId: e.projectId,
     description: e.description,
     minutes: e.minutes,
   });
 }
 
-export function deleteEntry(id: number) {
-  getDb().delete(timeEntries).where(eq(timeEntries.id, id)).run();
+export async function deleteEntries(ids: number[]) {
+  if (ids.length) await (await getDb()).delete(timeEntries).where(inArray(timeEntries.id, ids)).run();
 }
 
-export function deleteEntries(ids: number[]) {
-  if (ids.length) getDb().delete(timeEntries).where(inArray(timeEntries.id, ids)).run();
-}
-
-/** Mark entries invoiced (with an optional reference) or back to uninvoiced. */
-export function setBillingStatus(ids: number[], status: BillingStatus, invoiceRef?: string | null): number {
+/** Mark entries invoiced (with an optional reference) or back to uninvoiced. Returns the number changed. */
+export async function setBillingStatus(ids: number[], status: BillingStatus, invoiceRef?: string | null): Promise<number> {
   if (!ids.length) return 0;
   const set =
     status === "invoiced"
       ? { status, ...(invoiceRef?.trim() ? { invoiceRef: invoiceRef.trim() } : {}) }
       : { status, invoiceRef: null };
-  return getDb().update(timeEntries).set(set).where(inArray(timeEntries.id, ids)).run().changes;
+  const r = await (await getDb()).update(timeEntries).set(set).where(inArray(timeEntries.id, ids)).run();
+  return r.rowsAffected;
 }
 
 export type EntryFilters = {
@@ -144,8 +141,8 @@ function filterConds(f: EntryFilters) {
 }
 
 /** Entries matching the filters, newest first. Date bounds are inclusive. */
-export function listEntries(f: EntryFilters = {}): EntryRow[] {
-  const q = getDb()
+export async function listEntries(f: EntryFilters = {}): Promise<EntryRow[]> {
+  const q = (await getDb())
     .select({
       id: timeEntries.id,
       date: timeEntries.date,
@@ -172,12 +169,12 @@ export function listEntries(f: EntryFilters = {}): EntryRow[] {
   return f.limit ? q.limit(f.limit).all() : q.all();
 }
 
-export function getEntry(id: number): EntryRow | undefined {
-  return listEntries({ id, limit: 1 })[0];
+export async function getEntry(id: number): Promise<EntryRow | undefined> {
+  return (await listEntries({ id, limit: 1 }))[0];
 }
 
-export function sumEntries(f: EntryFilters = {}) {
-  return getDb()
+export async function sumEntries(f: EntryFilters = {}) {
+  return (await (await getDb())
     .select({
       count: sql<number>`count(*)`,
       minutes: sql<number>`coalesce(sum(${timeEntries.minutes}), 0)`,
@@ -187,12 +184,12 @@ export function sumEntries(f: EntryFilters = {}) {
     .innerJoin(projects, eq(projects.id, timeEntries.projectId))
     .innerJoin(clients, eq(clients.id, projects.clientId))
     .where(filterConds(f))
-    .get()!;
+    .get())!;
 }
 
 /** Per-client totals for a filter (dashboard breakdown). */
-export function totalsByClient(f: EntryFilters = {}) {
-  return getDb()
+export async function totalsByClient(f: EntryFilters = {}) {
+  return (await getDb())
     .select({
       clientId: clients.id,
       clientName: clients.name,

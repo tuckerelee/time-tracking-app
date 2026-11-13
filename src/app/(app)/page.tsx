@@ -8,17 +8,17 @@ import { formatDuration, formatTimeSpan } from "@/lib/duration";
 import { formatDate, formatDateShort, presetRange, todayIn } from "@/lib/dates";
 import { ButtonLink, Card, CardHeader, EmptyState, Stat } from "@/components/ui";
 
-export default function DashboardPage() {
-  const s = getSettings();
+export default async function DashboardPage() {
+  const s = await getSettings();
   const today = todayIn(s.timezone);
   const month = presetRange("thisMonth", today);
-  const todaySum = sumEntries({ from: today, to: today });
-  const monthSum = sumEntries(month);
-  const uninvoiced = sumEntries({ status: "uninvoiced" });
-  const byClient = totalsByClient(month);
-  const recent = listEntries({ limit: 8 });
+  const todaySum = await sumEntries({ from: today, to: today });
+  const monthSum = await sumEntries(month);
+  const uninvoiced = await sumEntries({ status: "uninvoiced" });
+  const byClient = await totalsByClient(month);
+  const recent = await listEntries({ limit: 8 });
   const monthName = formatDate(today).split(" ")[0];
-  const hasClients = getPickerOptions().length > 0;
+  const hasClients = (await getPickerOptions()).length > 0;
 
   return (
     <>

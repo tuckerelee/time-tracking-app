@@ -14,11 +14,11 @@ export const metadata = { title: "Reports" };
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
-  const s = getSettings();
-  const filters = parseReportFilters(sp);
-  const { report, clientName, filenameBase } = getReportData(filters);
-  const clients = listClients({ includeArchived: true });
-  const projects = listProjects({ includeArchived: true });
+  const s = await getSettings();
+  const filters = await parseReportFilters(sp);
+  const { report, clientName, filenameBase } = await getReportData(filters);
+  const clients = await listClients({ includeArchived: true });
+  const projects = await listProjects({ includeArchived: true });
 
   const qs = new URLSearchParams({
     preset: filters.preset,

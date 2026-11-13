@@ -18,8 +18,8 @@ export type TimerState = {
   wasPaused: boolean;
 };
 
-export function getTimer(): TimerState | null {
-  const row = getDb()
+export async function getTimer(): Promise<TimerState | null> {
+  const row = await (await getDb())
     .select({
       projectId: activeTimer.projectId,
       projectName: projects.name,
@@ -43,32 +43,32 @@ export function elapsedMs(t: Pick<TimerState, "accumulatedMs" | "runningSince">,
   return t.accumulatedMs + (t.runningSince ? Math.max(0, now - t.runningSince) : 0);
 }
 
-export function startTimer(input: { projectId: number; description?: string }, now = Date.now()) {
-  if (getTimer()) throw new Error("A timer is already running. Stop or discard it first.");
-  getDb()
+export async function startTimer(input: { projectId: number; description?: string }, now = Date.now()) {
+  if (await getTimer()) throw new Error("A timer is already running. Stop or discard it first.");
+  await (await getDb())
     .insert(activeTimer)
     .values({ id: 1, projectId: input.projectId, description: input.description?.trim() ?? "", startedAt: now, accumulatedMs: 0, runningSince: now })
     .run();
 }
 
-export function pauseTimer(now = Date.now()) {
-  const t = getTimer();
+export async function pauseTimer(now = Date.now()) {
+  const t = await getTimer();
   if (!t || !t.runningSince) return;
-  getDb()
+  await (await getDb())
     .update(activeTimer)
     .set({ accumulatedMs: elapsedMs(t, now), runningSince: null, wasPaused: true })
     .where(eq(activeTimer.id, 1))
     .run();
 }
 
-export function resumeTimer(now = Date.now()) {
-  const t = getTimer();
+export async function resumeTimer(now = Date.now()) {
+  const t = await getTimer();
   if (!t || t.runningSince) return;
-  getDb().update(activeTimer).set({ runningSince: now }).where(eq(activeTimer.id, 1)).run();
+  await (await getDb()).update(activeTimer).set({ runningSince: now }).where(eq(activeTimer.id, 1)).run();
 }
 
-export function updateTimer(input: { projectId?: number; description?: string }) {
-  getDb()
+export async function updateTimer(input: { projectId?: number; description?: string }) {
+  await (await getDb())
     .update(activeTimer)
     .set({
       ...(input.projectId ? { projectId: input.projectId } : {}),
@@ -78,8 +78,8 @@ export function updateTimer(input: { projectId?: number; description?: string })
     .run();
 }
 
-export function discardTimer() {
-  getDb().delete(activeTimer).where(eq(activeTimer.id, 1)).run();
+export async function discardTimer() {
+  await (await getDb()).delete(activeTimer).where(eq(activeTimer.id, 1)).run();
 }
 
 /**
@@ -88,19 +88,19 @@ export function discardTimer() {
  * Exact start/end times are recorded only when the timer was never paused, so
  * the span on a report always matches the billed duration.
  */
-export function stopTimer(opts: { description?: string } = {}, now = Date.now()) {
-  const t = getTimer();
+export async function stopTimer(opts: { description?: string } = {}, now = Date.now()) {
+  const t = await getTimer();
   if (!t) throw new Error("No timer is running.");
-  const { timezone } = getSettings();
+  const { timezone } = await getSettings();
   let minutes = Math.max(1, Math.round(elapsedMs(t, now) / 60000));
   const start = zonedParts(t.startedAt, timezone);
   const tooLong = minutes > 1440;
   if (tooLong) minutes = 1440;
   const recordTimes = !t.wasPaused && !tooLong;
   const description = (opts.description ?? t.description).trim() || "Timed work";
-  const db = getDb();
-  return db.transaction((tx) => {
-    const entry = createEntry(
+  const db = await getDb();
+  return db.transaction(async (tx) => {
+    const entry = await createEntry(
       {
         date: start.date,
         projectId: t.projectId,
@@ -112,8 +112,7 @@ export function stopTimer(opts: { description?: string } = {}, now = Date.now())
       },
       tx,
     );
-    tx.delete(activeTimer).where(eq(activeTimer.id, 1)).run();
+    await tx.delete(activeTimer).where(eq(activeTimer.id, 1)).run();
     return entry;
   });
 }
-

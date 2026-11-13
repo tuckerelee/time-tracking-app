@@ -38,7 +38,7 @@ function withRate<T extends { rateCents: number | null; clientRateCents: number 
   return { ...row, effectiveRateCents: r.rateCents, rateSource: r.source };
 }
 
-export function listProjects(opts: { clientId?: number; includeArchived?: boolean; search?: string } = {}): ProjectWithStats[] {
+export async function listProjects(opts: { clientId?: number; includeArchived?: boolean; search?: string } = {}): Promise<ProjectWithStats[]> {
   const conds = [];
   if (opts.clientId) conds.push(eq(projects.clientId, opts.clientId));
   if (!opts.includeArchived) conds.push(eq(projects.archived, false), eq(clients.archived, false));
@@ -46,7 +46,7 @@ export function listProjects(opts: { clientId?: number; includeArchived?: boolea
     const q = `%${opts.search.trim()}%`;
     conds.push(or(like(projects.name, q), like(clients.name, q)));
   }
-  return getDb()
+  const rows = await (await getDb())
     .select(fields)
     .from(projects)
     .innerJoin(clients, eq(clients.id, projects.clientId))
@@ -54,12 +54,12 @@ export function listProjects(opts: { clientId?: number; includeArchived?: boolea
     .where(conds.length ? and(...conds) : undefined)
     .groupBy(projects.id)
     .orderBy(asc(projects.archived), sql`${clients.name} COLLATE NOCASE`, sql`${projects.name} COLLATE NOCASE`)
-    .all()
-    .map(withRate);
+    .all();
+  return rows.map(withRate);
 }
 
-export function getProject(id: number): ProjectWithStats | undefined {
-  const row = getDb()
+export async function getProject(id: number): Promise<ProjectWithStats | undefined> {
+  const row = await (await getDb())
     .select(fields)
     .from(projects)
     .innerJoin(clients, eq(clients.id, projects.clientId))
@@ -70,9 +70,16 @@ export function getProject(id: number): ProjectWithStats | undefined {
   return row ? withRate(row) : undefined;
 }
 
+export type PickerClient = {
+  id: number;
+  name: string;
+  rateCents: number;
+  projects: { id: number; name: string; rateCents: number; rateSource: RateSource }[];
+};
+
 /** Active clients and their active projects, with effective rates — for pickers. */
-export function getPickerOptions() {
-  const rows = getDb()
+export async function getPickerOptions(): Promise<PickerClient[]> {
+  const rows = await (await getDb())
     .select({
       clientId: clients.id,
       clientName: clients.name,
@@ -96,13 +103,6 @@ export function getPickerOptions() {
   return out;
 }
 
-export type PickerClient = {
-  id: number;
-  name: string;
-  rateCents: number;
-  projects: { id: number; name: string; rateCents: number; rateSource: RateSource }[];
-};
-
 export type ProjectInput = {
   clientId: number;
   name: string;
@@ -111,8 +111,8 @@ export type ProjectInput = {
   rateCents?: number | null;
 };
 
-export function createProject(input: ProjectInput): Project {
-  return getDb()
+export async function createProject(input: ProjectInput): Promise<Project> {
+  return (await getDb())
     .insert(projects)
     .values({ ...input, name: input.name.trim(), rateCents: input.rateCents ?? null })
     .returning()
@@ -120,8 +120,8 @@ export function createProject(input: ProjectInput): Project {
 }
 
 /** Changing the override only affects entries saved afterwards. */
-export function updateProject(id: number, input: Partial<ProjectInput>): Project {
-  const row = getDb()
+export async function updateProject(id: number, input: Partial<ProjectInput>): Promise<Project> {
+  const row = await (await getDb())
     .update(projects)
     .set({ ...input, ...(input.name !== undefined ? { name: input.name.trim() } : {}) })
     .where(eq(projects.id, id))
@@ -131,15 +131,15 @@ export function updateProject(id: number, input: Partial<ProjectInput>): Project
   return row;
 }
 
-export function setProjectArchived(id: number, archived: boolean) {
-  getDb().update(projects).set({ archived }).where(eq(projects.id, id)).run();
+export async function setProjectArchived(id: number, archived: boolean) {
+  await (await getDb()).update(projects).set({ archived }).where(eq(projects.id, id)).run();
 }
 
-export function deleteProject(id: number) {
-  const db = getDb();
-  db.transaction((tx) => {
-    const used = tx.select({ n: sql<number>`count(*)` }).from(timeEntries).where(eq(timeEntries.projectId, id)).get();
+export async function deleteProject(id: number) {
+  const db = await getDb();
+  await db.transaction(async (tx) => {
+    const used = await tx.select({ n: sql<number>`count(*)` }).from(timeEntries).where(eq(timeEntries.projectId, id)).get();
     if (used && used.n > 0) throw new Error("This project has time entries. Archive it instead so its history is kept.");
-    tx.delete(projects).where(eq(projects.id, id)).run();
+    await tx.delete(projects).where(eq(projects.id, id)).run();
   });
 }

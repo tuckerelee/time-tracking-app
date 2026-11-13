@@ -21,15 +21,28 @@ const statsFields = {
   uninvoicedCount: sql<number>`count(CASE WHEN ${timeEntries.status} = 'uninvoiced' THEN 1 END)`,
 };
 
-export function listClients(opts: { includeArchived?: boolean; search?: string } = {}): ClientWithStats[] {
+const clientColumns = {
+  id: clients.id,
+  name: clients.name,
+  company: clients.company,
+  email: clients.email,
+  phone: clients.phone,
+  notes: clients.notes,
+  rateCents: clients.rateCents,
+  archived: clients.archived,
+  createdAt: clients.createdAt,
+  updatedAt: clients.updatedAt,
+};
+
+export async function listClients(opts: { includeArchived?: boolean; search?: string } = {}): Promise<ClientWithStats[]> {
   const conds = [];
   if (!opts.includeArchived) conds.push(eq(clients.archived, false));
   if (opts.search?.trim()) {
     const q = `%${opts.search.trim()}%`;
     conds.push(or(like(clients.name, q), like(clients.company, q)));
   }
-  return getDb()
-    .select({ ...clientColumns(), ...statsFields })
+  return (await getDb())
+    .select({ ...clientColumns, ...statsFields })
     .from(clients)
     .leftJoin(projects, eq(projects.clientId, clients.id))
     .leftJoin(timeEntries, eq(timeEntries.projectId, projects.id))
@@ -39,9 +52,9 @@ export function listClients(opts: { includeArchived?: boolean; search?: string }
     .all();
 }
 
-export function getClient(id: number): ClientWithStats | undefined {
-  return getDb()
-    .select({ ...clientColumns(), ...statsFields })
+export async function getClient(id: number): Promise<ClientWithStats | undefined> {
+  return (await getDb())
+    .select({ ...clientColumns, ...statsFields })
     .from(clients)
     .leftJoin(projects, eq(projects.clientId, clients.id))
     .leftJoin(timeEntries, eq(timeEntries.projectId, projects.id))
@@ -60,9 +73,9 @@ export type ClientInput = {
   rateCents?: number;
 };
 
-export function createClient(input: ClientInput): Client {
-  const rateCents = input.rateCents ?? getSettings().defaultRateCents;
-  return getDb()
+export async function createClient(input: ClientInput): Promise<Client> {
+  const rateCents = input.rateCents ?? (await getSettings()).defaultRateCents;
+  return (await getDb())
     .insert(clients)
     .values({ ...input, name: input.name.trim(), rateCents })
     .returning()
@@ -73,8 +86,8 @@ export function createClient(input: ClientInput): Client {
  * Changing a client's rate only affects entries saved afterwards: every saved
  * entry keeps the rate it was logged at.
  */
-export function updateClient(id: number, input: Partial<ClientInput>): Client {
-  const row = getDb()
+export async function updateClient(id: number, input: Partial<ClientInput>): Promise<Client> {
+  const row = await (await getDb())
     .update(clients)
     .set({ ...input, ...(input.name !== undefined ? { name: input.name.trim() } : {}) })
     .where(eq(clients.id, id))
@@ -84,37 +97,22 @@ export function updateClient(id: number, input: Partial<ClientInput>): Client {
   return row;
 }
 
-export function setClientArchived(id: number, archived: boolean) {
-  getDb().update(clients).set({ archived }).where(eq(clients.id, id)).run();
+export async function setClientArchived(id: number, archived: boolean) {
+  await (await getDb()).update(clients).set({ archived }).where(eq(clients.id, id)).run();
 }
 
 /** Only clients with no time entries can be deleted; otherwise archive them. */
-export function deleteClient(id: number) {
-  const db = getDb();
-  db.transaction((tx) => {
-    const used = tx
+export async function deleteClient(id: number) {
+  const db = await getDb();
+  await db.transaction(async (tx) => {
+    const used = await tx
       .select({ n: sql<number>`count(*)` })
       .from(timeEntries)
       .innerJoin(projects, eq(projects.id, timeEntries.projectId))
       .where(eq(projects.clientId, id))
       .get();
     if (used && used.n > 0) throw new Error("This client has time entries. Archive it instead so its history is kept.");
-    tx.delete(projects).where(eq(projects.clientId, id)).run();
-    tx.delete(clients).where(eq(clients.id, id)).run();
+    await tx.delete(projects).where(eq(projects.clientId, id)).run();
+    await tx.delete(clients).where(eq(clients.id, id)).run();
   });
-}
-
-function clientColumns() {
-  return {
-    id: clients.id,
-    name: clients.name,
-    company: clients.company,
-    email: clients.email,
-    phone: clients.phone,
-    notes: clients.notes,
-    rateCents: clients.rateCents,
-    archived: clients.archived,
-    createdAt: clients.createdAt,
-    updatedAt: clients.updatedAt,
-  };
 }

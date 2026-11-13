@@ -13,9 +13,9 @@ export const metadata = { title: "Projects" };
 export default async function ProjectsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
   const clientId = sp.client && /^\d+$/.test(sp.client) ? Number(sp.client) : undefined;
-  const rows = listProjects({ clientId, includeArchived: sp.archived === "1", search: sp.q });
-  const activeClients = listClients().map((c) => ({ id: c.id, name: c.name, rateCents: c.rateCents }));
-  const allClients = listClients({ includeArchived: true });
+  const rows = await listProjects({ clientId, includeArchived: sp.archived === "1", search: sp.q });
+  const activeClients = (await listClients()).map((c) => ({ id: c.id, name: c.name, rateCents: c.rateCents }));
+  const allClients = await listClients({ includeArchived: true });
   return (
     <>
       <PageHeader

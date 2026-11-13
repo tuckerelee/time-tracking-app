@@ -21,8 +21,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!(format in TYPES)) return NextResponse.json({ error: "Unknown format" }, { status: 404 });
   const ext = format as keyof typeof TYPES;
 
-  const settings = getSettings();
-  const data = getReportData(parseReportFilters(request.nextUrl.searchParams));
+  const settings = await getSettings();
+  const data = await getReportData(await parseReportFilters(request.nextUrl.searchParams));
   const body: string | Buffer = ext === "csv" ? buildCsv(data) : ext === "xlsx" ? await buildXlsx(data, settings) : await buildPdf(data, settings);
 
   return new NextResponse(typeof body === "string" ? body : new Uint8Array(body), {
