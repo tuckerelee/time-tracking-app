@@ -18,7 +18,7 @@ const ZONES = [
   ["UTC", "UTC"],
 ];
 
-export function SettingsForm({ settings }: { settings: Settings }) {
+export function SettingsForm({ settings, exampleRange }: { settings: Settings; exampleRange: { from: string; to: string } }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -89,7 +89,7 @@ export function SettingsForm({ settings }: { settings: Settings }) {
           <div className="flex flex-col gap-1.5 text-xs font-medium text-stone-600">
             Example
             <code className="flex min-h-10 items-center rounded-lg bg-stone-50 px-3 py-2 font-mono text-xs font-normal break-all text-stone-700">
-              {reportFilename({ clientName: "Acme Company", from: "2026-11-01", to: "2026-11-30", suffix: v.filenameSuffix, ext: "pdf" })}
+              {reportFilename({ clientName: "Client Name", from: exampleRange.from, to: exampleRange.to, suffix: v.filenameSuffix, ext: "pdf" })}
             </code>
           </div>
         </div>

@@ -2,7 +2,7 @@ import { formatFilenameDate, type IsoDate } from "./dates";
 
 /**
  * Remove characters that are invalid in filenames on Windows/macOS/Linux while
- * keeping the name readable ("Harbor & Pine Law" stays as-is).
+ * keeping the name readable ("Smith & Jones Law" stays as-is).
  */
 export function sanitizeFilenamePart(name: string): string {
   return name

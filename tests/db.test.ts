@@ -2,14 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { getDb, openDb, setDbForTesting } from "@/db";
+import { openDb, setDbForTesting } from "@/db";
 import { getSettings, updateSettings } from "@/server/settings";
 import { createClient, getClient, updateClient, deleteClient, listClients } from "@/server/clients";
 import { createProject, getProject, updateProject, deleteProject } from "@/server/projects";
 import { createEntry, duplicateEntry, listEntries, setBillingStatus, updateEntry } from "@/server/entries";
 import { getReportData, parseReportFilters } from "@/server/reports";
 import { getTimer, pauseTimer, resumeTimer, startTimer, stopTimer } from "@/server/timer";
-import { clientCount, loadSampleData } from "@/server/sample-data";
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ledger-test-"));
 let n = 0;
@@ -223,16 +222,9 @@ describe("timer", () => {
   });
 });
 
-describe("settings and sample data", () => {
+describe("settings", () => {
   it("defaults the filename suffix to Lee", async () => {
     expect((await getSettings()).filenameSuffix).toBe("Lee");
   });
 
-  it("loads sample data that reconciles", async () => {
-    await loadSampleData();
-    expect(await clientCount(await getDb())).toBe(4);
-    const rows = await listEntries({});
-    expect(rows.length).toBeGreaterThan(0);
-    for (const r of rows) expect(r.amountCents).toBe(Math.floor((r.minutes * r.rateCents + 30) / 60));
-  });
 });

@@ -54,7 +54,6 @@ Then:
 
 ```bash
 npm run dev            # http://localhost:3000
-npm run db:seed        # optional: sample clients, projects and entries
 ```
 
 The database (`data/app.db` by default) and its tables are created
@@ -67,7 +66,7 @@ details, default rate and timezone.
    add **Turso**, or create one at turso.tech and copy its URL and token.
 2. Set the project's environment variables: `AUTH_SECRET`, `APP_PASSWORD_HASH`
    (or `APP_PASSWORD`), and `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (added
-   automatically by the integration). Remove `DEMO_MODE`.
+   automatically by the integration).
 3. Deploy. Tables are created automatically on first request; there is nothing
    to run by hand.
 
