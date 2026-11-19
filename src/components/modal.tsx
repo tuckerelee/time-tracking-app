@@ -14,10 +14,10 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   return (
     <dialog
       ref={ref}
+      // Closes only via the × button, a Cancel button or Esc. Clicking outside
+      // does nothing: some browsers and autofill extensions report clicks inside
+      // form fields as clicks on the backdrop, which closed forms mid-edit.
       onClose={onClose}
-      onClick={(e) => {
-        if (e.target === ref.current) onClose();
-      }}
       className={`m-auto w-[calc(100%-2rem)] ${wide ? "max-w-3xl" : "max-w-lg"} rounded-xl border border-stone-200 bg-white p-0 text-stone-900 shadow-xl`}
     >
       {open ? (
